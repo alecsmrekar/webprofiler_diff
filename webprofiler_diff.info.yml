@@ -1,0 +1,9 @@
+name: Web Profiler DIff
+type: module
+description: 'Show diff between profiles.'
+package: Development
+version: 8.x-1.1-alpha13
+core: 8.x
+dependencies:
+  - webprofiler
+  - webprofiler_graphs

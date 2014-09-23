@@ -1,0 +1,13 @@
+webprofiler.diff:
+  path: '/admin/reports/profiler/diff/{profile1}/{profile2}'
+  defaults:
+    _content: '\Drupal\webprofiler_diff\Controller\WebprofilerDiffController::diffAction'
+    _title: 'Webprofiler diff'
+  options:
+    parameters:
+      profile1:
+        type: 'webprofiler:token'
+      profile2:
+        type: 'webprofiler:token'
+  requirements:
+    _permission: 'access webprofiler'

@@ -1,0 +1,7 @@
+database:
+  version: 1.0
+  js:
+    js/database_diff.js: {}
+  dependencies:
+    - webprofiler/d3
+    - webprofiler_graphs/c3
