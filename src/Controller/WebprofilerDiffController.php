@@ -3,15 +3,11 @@
 namespace Drupal\webprofiler_diff\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\webprofiler\DataCollector\DatabaseDataCollector;
-use Drupal\webprofiler\DataCollector\ServiceDataCollector;
-use Drupal\webprofiler_graphs\Database\WebprofilerPhpSqlParser;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpKernel\Profiler\Profile;
-use \Drupal\webprofiler\Profiler\Profiler;
+use Drupal\webprofiler\Profiler\Profiler;
 
 /**
- * Class WebprofilerDiffController
+ * Class WebprofilerDiffController.
  */
 class WebprofilerDiffController extends ControllerBase {
 
@@ -20,13 +16,12 @@ class WebprofilerDiffController extends ControllerBase {
    */
   private $profiler;
 
-
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     return new static(
-      $container->get('profiler')
+      $container->get('webprofiler.profiler')
     );
   }
 
@@ -45,20 +40,23 @@ class WebprofilerDiffController extends ControllerBase {
    *
    * @return array
    */
-  public function diffAction(Profile $profile1, Profile $profile2) {
-    $build = array();
+  public function diffAction(string $profile1, string $profile2) {
+    $build = [];
 
     $this->profiler->disable();
 
-    /** @var DatabaseDataCollector $database1 */
+    $profile1 = $this->profiler->loadProfile($profile1);
+    $profile2 = $this->profiler->loadProfile($profile2);
+
+    /** @var \Drupal\webprofiler\DataCollector\DatabaseDataCollector $database1 */
     $database1 = $profile1->getCollector('database');
     $query1 = $database1->getQueries();
 
-    /** @var DatabaseDataCollector $database2 */
+    /** @var \Drupal\webprofiler\DataCollector\DatabaseDataCollector $database2 */
     $database2 = $profile2->getCollector('database');
     $query2 = $database2->getQueries();
 
-    $matchedQueries = array();
+    $matchedQueries = [];
     foreach ($query1 as $q1) {
       $sql1 = $q1['query'];
       $hash = hash('md5', $sql1);
@@ -67,20 +65,20 @@ class WebprofilerDiffController extends ControllerBase {
         $sql2 = $q2['query'];
 
         if ($sql1 === $sql2) {
-          $matchedQueries[$hash] = array(
+          $matchedQueries[$hash] = [
             'query' => $sql1,
             'time1' => $q1['time'],
             'time2' => $q2['time'],
             'delta' => $q1['time'] - $q2['time'],
-            'report' => ($q1['time'] === $q2['time']) ? 'equal' : ($q1['time'] > $q2['time']) ? 'better' : 'worse',
-          );
+            'report' => ($q1['time'] === $q2['time']) ? 'equal' : (($q1['time'] > $q2['time']) ? 'better' : 'worse'),
+          ];
         }
       }
     }
 
-    $data1 = array($profile1->getToken());
-    $data2 = array($profile2->getToken());
-    $data3 = array('delta');
+    $data1 = [$profile1->getToken()];
+    $data2 = [$profile2->getToken()];
+    $data3 = ['delta'];
     $i = 0;
     foreach ($matchedQueries as &$query) {
       $data1[] = $query['time1'];
@@ -91,66 +89,61 @@ class WebprofilerDiffController extends ControllerBase {
       $i++;
     }
 
-    $data = array($data1, $data2, $data3);
+    $data = [$data1, $data2, $data3];
 
-    $build['summary'] = array(
+    $build['summary'] = [
       '#type' => 'inline_template',
       '#template' => '<p>{{ message }}</p><br/>',
-      '#context' => array(
+      '#context' => [
         'message' => t('@numQuery1 queries has been executed in @token1. @numQuery2 queries has been executed in @token2.',
-          array(
+          [
             '@numQuery1' => $database1->getQueryCount(),
             '@token1' => $profile1->getToken(),
             '@numQuery2' => $database2->getQueryCount(),
             '@token2' => $profile2->getToken(),
-          )
-        )
-      )
-    );
+          ]
+        ),
+      ],
+    ];
 
-    $build['graph'] = array(
+    $build['graph'] = [
       '#type' => 'inline_template',
       '#template' => '<div id="chart"></div>',
-      '#attached' => array(
-        'library' => array(
+      '#attached' => [
+        'library' => [
           'webprofiler_diff/database',
-        ),
-        'js' => array(
-          array(
-            'data' => array('webprofiler_diff' => array('data' => $data)),
-            'type' => 'setting'
-          )
-        )
-      )
-    );
+        ],
+        'drupalSettings' => ['webprofiler_diff' => ['data' => $data]],
+      ],
+    ];
 
-    $build['tableTitle'] = array(
+    $build['tableTitle'] = [
       '#type' => 'inline_template',
       '#template' => '<h3>{{ title }}</h3><p>{{ message }}</p>',
-      '#context' => array(
+      '#context' => [
         'title' => t('Queries in common'),
         'message' => t('@token1 and @token2 has @matchedQueries queries in common.',
-          array(
+          [
             '@token1' => $profile1->getToken(),
             '@token2' => $profile2->getToken(),
             '@matchedQueries' => count($matchedQueries),
-          )
-        )
-      )
-    );
+          ]
+        ),
+      ],
+    ];
 
-    $build['table'] = array(
+    $build['table'] = [
       '#type' => 'table',
-      '#header' => array(
+      '#header' => [
         $this->t('Query'),
-        $this->t('@token time', array('@token' => $profile1->getToken())),
-        $this->t('@token time', array('@token' => $profile2->getToken())),
+        $this->t('@token time', ['@token' => $profile1->getToken()]),
+        $this->t('@token time', ['@token' => $profile2->getToken()]),
         $this->t('Delta'),
         $this->t('Report'),
         $this->t('Position'),
-      ),
+      ],
       '#rows' => $matchedQueries,
-    );
+    ];
 
     return $build;
   }
